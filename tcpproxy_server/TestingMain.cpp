@@ -50,6 +50,7 @@
 #include <cstddef>
 #include <iostream>
 #include <string>
+#include <fstream>
 
 #include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
@@ -70,14 +71,28 @@ namespace tcp_proxy
         typedef ip::tcp::socket socket_type;
         typedef boost::shared_ptr<bridge> ptr_type;
 
-        std::string LogFileLocation;
+        const std::string LogFileLocation = "log/data.log";
 
         bridge(boost::asio::io_service& ios)
             : downstream_socket_(ios),
             upstream_socket_(ios)//,
             //temp_socket_(ios)
         {
-            LogFileLocation = "log/data.log";
+        }
+
+        void FlushWriteFile(std::string str) {
+            //std::stringstream out(LogFileLocation);
+            //std::streambuf* coutbuf = std::cout.rdbuf(); //save old buf
+            //std::cout.rdbuf(out.rdbuf()); //redirect std::cout to out.txt!
+
+            //std::cout << "\n" << str << "\n";  //output to the file out.txt
+
+            //std::cout.rdbuf(coutbuf); //reset to standard output again
+
+            std::ofstream myfile;
+            myfile.open("example.txt", std::fstream::app);
+            myfile << str << "\n";
+            myfile.close();
         }
 
         //void PrintToFS(boost::asio::ip::tcp::socket& socket) {
@@ -141,10 +156,7 @@ namespace tcp_proxy
         void handle_upstream_connect(const boost::system::error_code& error)
         {
             if (!error)
-            {
-                //PrintData(upstream_socket_);
-                //PrintData(downstream_socket_);
-                                
+            {                                
                 // Setup async read from remote server (upstream)
                 upstream_socket_.async_read_some(
 					boost::asio::buffer(upstream_data_, max_data_length),
@@ -178,8 +190,21 @@ namespace tcp_proxy
             const size_t& bytes_transferred)
         {
 
-            std::cout << "Data transferred to downstream: " << bytes_transferred << "\n";
-            std::cout << "Data value: " << upstream_data_<< "\n";
+            std::cout << "Bytes transferred to downstream: " << bytes_transferred << "\n";
+            std::cout << "Data: " << upstream_data_<< "\n";
+
+            std::string data = "Bytes transferred upstream -> downstream: ";
+            data += std::to_string(bytes_transferred);
+            data += "\n";
+
+            FlushWriteFile(data);
+
+            data = "Data: ";
+            std::string s(reinterpret_cast<char const*>(upstream_data_), bytes_transferred);
+            data += s;
+            data += "\n";
+
+            FlushWriteFile(data);
 
             if (!error)
             {
@@ -254,8 +279,21 @@ namespace tcp_proxy
         {
             if (!error)
             {
-                std::cout << "Data transferred to upstream: " << bytes_transferred << "\n\n";
-                std::cout << "Data value: " << downstream_data_ << "\n";
+                std::cout << "Bytes transferred to upstream: " << bytes_transferred << "\n";
+                std::cout << "Data: " << downstream_data_ << "\n";
+
+                std::string data = "Bytes transferred downstream -> upstream: ";
+                data += std::to_string(bytes_transferred);
+                data += "\n";
+
+                FlushWriteFile(data);
+
+                data = "Data: ";
+                std::string s(reinterpret_cast<char const*>(downstream_data_), bytes_transferred);
+                data += s;
+                data += "\n";
+
+                FlushWriteFile(data);
 
                 async_write(upstream_socket_,
                     boost::asio::buffer(downstream_data_, bytes_transferred),
@@ -289,23 +327,6 @@ namespace tcp_proxy
 
                 downstream_socket_.async_read_some(
                     boost::asio::buffer(downstream_data_, max_data_length),
-
-       //             [&](std::error_code ecode, std::size_t len) {
-
-       //                 if (!ecode) {
-       //                     std::cout << "\n\n Write Upstream data: " << len << " bytes\n\n";
-
-       //                     for (int i = 0; i < len; i++) {
-       //                         std::cout << downstream_data_[i];
-       //                     }
-
-							//boost::bind(&bridge::handle_downstream_read,
-							//	shared_from_this(),
-							//	boost::asio::placeholders::error,
-							//	boost::asio::placeholders::bytes_transferred);
-       //                 }
-       //             });
-
                     boost::bind(&bridge::handle_downstream_read,
                         shared_from_this(),
                         boost::asio::placeholders::error,
@@ -417,27 +438,27 @@ namespace tcp_proxy
 int main(int argc, char* argv[])
 {
 
-    //if (argc != 5)
-    //{
-    //    std::cerr << "usage: tcpproxy_server <local host ip> <local port> <forward host ip> <forward port>" << std::endl;
-    //    return 1;
-    //}
+    if (argc != 5)
+    {
+        std::cerr << "usage: tcpproxy_server <local host ip> <local port> <forward host ip> <forward port>" << std::endl;
+        return 1;
+    }
 
-    //const unsigned short local_port = static_cast<unsigned short>(::atoi(argv[2]));
-    //const unsigned short forward_port = static_cast<unsigned short>(::atoi(argv[4]));
-    //const std::string local_host = argv[1];
-    //const std::string forward_host = argv[3];
+    const unsigned short local_port = static_cast<unsigned short>(::atoi(argv[2]));
+    const unsigned short forward_port = static_cast<unsigned short>(::atoi(argv[4]));
+    const std::string local_host = argv[1];
+    const std::string forward_host = argv[3];
 
-    const char* input_local_port = "80";
-    const char* input_forward_port = "80";
-    const char* input_local_host = "127.0.1.1";
-    const char* input_forward_host = "192.168.1.103";
-    //const char* input_forward_host = "172.217.174.110";
+    //const char* input_local_port = "80";
+    //const char* input_forward_port = "80";
+    //const char* input_local_host = "127.0.1.1";
+    //const char* input_forward_host = "192.168.1.103";
+    ////const char* input_forward_host = "172.217.174.110";
 
-    const unsigned short local_port = static_cast<unsigned short>(::atoi(input_local_port));
-    const unsigned short forward_port = static_cast<unsigned short>(::atoi(input_forward_port));
-    const std::string local_host = input_local_host;
-    const std::string forward_host = input_forward_host;
+    //const unsigned short local_port = static_cast<unsigned short>(::atoi(input_local_port));
+    //const unsigned short forward_port = static_cast<unsigned short>(::atoi(input_forward_port));
+    //const std::string local_host = input_local_host;
+    //const std::string forward_host = input_forward_host;
 
     boost::asio::io_service ios;
 
