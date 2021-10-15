@@ -70,27 +70,49 @@ namespace tcp_proxy
         typedef ip::tcp::socket socket_type;
         typedef boost::shared_ptr<bridge> ptr_type;
 
+        std::string LogFileLocation;
+
         bridge(boost::asio::io_service& ios)
             : downstream_socket_(ios),
-            upstream_socket_(ios)
-        {}
-
-        void PrintData(boost::asio::ip::tcp::socket& socket) {
-            socket.async_read_some(boost::asio::buffer(vBuffer.data(), vBuffer.size()),
-                [&](std::error_code ecode, std::size_t len) {
-                    
-                    if (!ecode) {
-                        std::cout << "\n\n READ : " << len << " bytes\n\n";
-
-                        for (int i = 0; i < len; i++) {
-                            std::cout << vBuffer[i];
-                        }
-
-                        PrintData(socket);
-                    }
-                }
-            );
+            upstream_socket_(ios)//,
+            //temp_socket_(ios)
+        {
+            LogFileLocation = "log/data.log";
         }
+
+        //void PrintToFS(boost::asio::ip::tcp::socket& socket) {
+        //    socket.async_read_some(boost::asio::buffer(vBuffer.data(), vBuffer.size()),
+        //        [&](std::error_code ecode, std::size_t len) {
+
+        //            if (!ecode) {
+        //                std::cout << "\n\n READ : " << len << " bytes\n\n";
+
+        //                for (int i = 0; i < len; i++) {
+        //                    std::cout << vBuffer[i];
+        //                }
+
+        //                PrintToFS(socket);
+        //            }
+        //        }
+        //    );
+        //}
+
+        //void PrintData(boost::asio::ip::tcp::socket& socket) {
+        //    socket.async_read_some(boost::asio::buffer(vBuffer.data(), vBuffer.size()),
+        //        [&](std::error_code ecode, std::size_t len) {
+        //            
+        //            if (!ecode) {
+        //                std::cout << "\n\n READ : " << len << " bytes\n\n";
+
+        //                for (int i = 0; i < len; i++) {
+        //                    std::cout << vBuffer[i];
+        //                }
+
+        //                //PrintData(socket);
+        //            }
+        //        }
+        //    );
+        //}
 
         socket_type& downstream_socket()
         {
@@ -120,17 +142,16 @@ namespace tcp_proxy
         {
             if (!error)
             {
-
                 //PrintData(upstream_socket_);
                 //PrintData(downstream_socket_);
-
+                                
                 // Setup async read from remote server (upstream)
                 upstream_socket_.async_read_some(
-                    boost::asio::buffer(upstream_data_, max_data_length),
-                    boost::bind(&bridge::handle_upstream_read,
-                        shared_from_this(),
-                        boost::asio::placeholders::error,
-                        boost::asio::placeholders::bytes_transferred));
+					boost::asio::buffer(upstream_data_, max_data_length),
+					boost::bind(&bridge::handle_upstream_read,
+						shared_from_this(),
+						boost::asio::placeholders::error,
+						boost::asio::placeholders::bytes_transferred));
 
                 // Setup async read from client (downstream)
                 downstream_socket_.async_read_some(
@@ -156,14 +177,31 @@ namespace tcp_proxy
         void handle_upstream_read(const boost::system::error_code& error,
             const size_t& bytes_transferred)
         {
+
+            std::cout << "Data transferred to downstream: " << bytes_transferred << "\n";
+            std::cout << "Data value: " << upstream_data_<< "\n";
+
             if (!error)
             {
                 async_write(downstream_socket_,
-                    boost::asio::buffer(upstream_data_, bytes_transferred),
-                    boost::bind(&bridge::handle_downstream_write,
-                        shared_from_this(),
-                        boost::asio::placeholders::error));
-            }
+					boost::asio::buffer(upstream_data_, bytes_transferred),
+
+					/*[&](std::error_code ecode, std::size_t len) {
+
+                        if (!ecode) {
+                            std::cout << "\n\n Read Upstream data: " << len << " bytes\n\n";
+
+                            for (int i = 0; i < len; i++) {
+                                std::cout << upstream_data_[i];
+                            }*/
+
+                            boost::bind(&bridge::handle_downstream_write,
+                                shared_from_this(),
+                                boost::asio::placeholders::error)
+     //                   }
+					//}
+				);
+			}
             else
                 close();
         }
@@ -177,6 +215,23 @@ namespace tcp_proxy
 
                 upstream_socket_.async_read_some(
                     boost::asio::buffer(upstream_data_, max_data_length),
+
+                    //[&](std::error_code ecode, std::size_t len) {
+
+                    //    if (!ecode) {
+                    //        std::cout << "\n\n Write to downstream : " << len << " bytes\n\n";
+
+                    //        for (int i = 0; i < len; i++) {
+                    //            std::cout << upstream_data_[i];
+                    //        }
+
+                    //        boost::bind(&bridge::handle_upstream_read,
+                    //            shared_from_this(),
+                    //            boost::asio::placeholders::error,
+                    //            boost::asio::placeholders::bytes_transferred);
+                    //    }
+                    //});
+
                     boost::bind(&bridge::handle_upstream_read,
                         shared_from_this(),
                         boost::asio::placeholders::error,
@@ -199,11 +254,27 @@ namespace tcp_proxy
         {
             if (!error)
             {
+                std::cout << "Data transferred to upstream: " << bytes_transferred << "\n\n";
+                std::cout << "Data value: " << downstream_data_ << "\n";
+
                 async_write(upstream_socket_,
                     boost::asio::buffer(downstream_data_, bytes_transferred),
-                    boost::bind(&bridge::handle_upstream_write,
-                        shared_from_this(),
-                        boost::asio::placeholders::error));
+
+                    /*[&](std::error_code ecode, std::size_t len) {
+
+                        if (!ecode) {
+                            std::cout << "\n\n Read Downstream data: " << len << " bytes\n\n";
+
+                            for (int i = 0; i < len; i++) {
+                                std::cout << downstream_data_[i];
+                            }*/
+
+                            boost::bind(&bridge::handle_upstream_write,
+                                shared_from_this(),
+                                boost::asio::placeholders::error)
+                    //    }
+                    //}
+                );
             }
             else
                 close();
@@ -218,6 +289,23 @@ namespace tcp_proxy
 
                 downstream_socket_.async_read_some(
                     boost::asio::buffer(downstream_data_, max_data_length),
+
+       //             [&](std::error_code ecode, std::size_t len) {
+
+       //                 if (!ecode) {
+       //                     std::cout << "\n\n Write Upstream data: " << len << " bytes\n\n";
+
+       //                     for (int i = 0; i < len; i++) {
+       //                         std::cout << downstream_data_[i];
+       //                     }
+
+							//boost::bind(&bridge::handle_downstream_read,
+							//	shared_from_this(),
+							//	boost::asio::placeholders::error,
+							//	boost::asio::placeholders::bytes_transferred);
+       //                 }
+       //             });
+
                     boost::bind(&bridge::handle_downstream_read,
                         shared_from_this(),
                         boost::asio::placeholders::error,
@@ -225,6 +313,7 @@ namespace tcp_proxy
             }
             else
                 close();
+
         }
         // *** End Of Section B ***
 
@@ -246,9 +335,13 @@ namespace tcp_proxy
         socket_type downstream_socket_;
         socket_type upstream_socket_;
 
+        //socket_type temp_socket_;
+
         enum { max_data_length = 8192 }; //8KB
         unsigned char downstream_data_[max_data_length];
         unsigned char upstream_data_[max_data_length];
+
+        //unsigned char temp_data_[max_data_length];
 
         boost::mutex mutex_;
 
@@ -296,6 +389,7 @@ namespace tcp_proxy
             {
                 if (!error)
                 {
+                    std::cout << "Connection accepted!\n";
                     session_->start(upstream_host_, upstream_port_);
 
                     if (!accept_connections())
@@ -321,8 +415,18 @@ namespace tcp_proxy
 }
 
 int main(int argc, char* argv[])
-//int main()
 {
+
+    //if (argc != 5)
+    //{
+    //    std::cerr << "usage: tcpproxy_server <local host ip> <local port> <forward host ip> <forward port>" << std::endl;
+    //    return 1;
+    //}
+
+    //const unsigned short local_port = static_cast<unsigned short>(::atoi(argv[2]));
+    //const unsigned short forward_port = static_cast<unsigned short>(::atoi(argv[4]));
+    //const std::string local_host = argv[1];
+    //const std::string forward_host = argv[3];
 
     const char* input_local_port = "80";
     const char* input_forward_port = "80";
