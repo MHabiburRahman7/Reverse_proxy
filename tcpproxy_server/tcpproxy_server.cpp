@@ -48,227 +48,222 @@
 #include "tcpproxy_server.h"
 
 using namespace tcp_proxy;
+using namespace ip;
 
-	 bridge::bridge(boost::asio::io_service& ios)
-		: downstream_socket_(ios),
-		upstream_socket_(ios)
-	{}
+void tcp_proxy::bridge::FlushWriteFile(std::string str)
+{
+	std::ofstream myfile;
+	myfile.open(LogFileLocation, std::fstream::app);
+	myfile << str << "\n";
+	myfile.close();
+}
 
-	socket_type& downstream_socket()
+bridge::socket_type& tcp_proxy::bridge::downstream_socket()
+{
+	// Client socket
+	return downstream_socket_;
+}
+
+bridge::socket_type& tcp_proxy::bridge::upstream_socket()
+{
+	// Remote server socket
+	return upstream_socket_;
+}
+
+void tcp_proxy::bridge::start(const std::string& upstream_host, unsigned short upstream_port)
+{
+	// Attempt connection to remote server (upstream side)
+	upstream_socket_.async_connect(
+		ip::tcp::endpoint(
+			boost::asio::ip::address::from_string(upstream_host),
+			upstream_port),
+		boost::bind(&bridge::handle_upstream_connect,
+			shared_from_this(),
+			boost::asio::placeholders::error));
+}
+
+void tcp_proxy::bridge::handle_upstream_connect(const boost::system::error_code& error)
+{
+	if (!error)
 	{
-		// Client socket
-		return downstream_socket_;
+		// Setup async read from remote server (upstream)
+		upstream_socket_.async_read_some(
+			boost::asio::buffer(upstream_data_, max_data_length),
+			boost::bind(&bridge::handle_upstream_read,
+				shared_from_this(),
+				boost::asio::placeholders::error,
+				boost::asio::placeholders::bytes_transferred));
+
+		// Setup async read from client (downstream)
+		downstream_socket_.async_read_some(
+			boost::asio::buffer(downstream_data_, max_data_length),
+			boost::bind(&bridge::handle_downstream_read,
+				shared_from_this(),
+				boost::asio::placeholders::error,
+				boost::asio::placeholders::bytes_transferred));
 	}
+	else
+		close();
+}
 
-	socket_type& upstream_socket()
-	{
-		// Remote server socket
-		return upstream_socket_;
-	}
+/*
+   Section A: Remote Server --> Proxy --> Client
+   Process data recieved from remote sever then send to client.
+*/
 
-	void start(const std::string& upstream_host, unsigned short upstream_port)
+// Read from remote server complete, now send data to client
+void tcp_proxy::bridge::handle_upstream_read(const boost::system::error_code& error,
+	const size_t& bytes_transferred)
+{
+	std::cout << "Bytes transferred to downstream: " << bytes_transferred << "\n";
+	std::cout << "Data: " << upstream_data_ << "\n";
+
+	std::string data = "Bytes transferred upstream -> downstream: ";
+	data += std::to_string(bytes_transferred);
+	data += "\n";
+
+	FlushWriteFile(data);
+
+	data = "Data: ";
+	std::string s(reinterpret_cast<char const*>(upstream_data_), bytes_transferred);
+	data += s;
+	data += "\n";
+
+	FlushWriteFile(data);
+
+	if (!error)
 	{
-		// Attempt connection to remote server (upstream side)
-		upstream_socket_.async_connect(
-			ip::tcp::endpoint(
-				boost::asio::ip::address::from_string(upstream_host),
-				upstream_port),
-			boost::bind(&bridge::handle_upstream_connect,
+		async_write(downstream_socket_,
+			boost::asio::buffer(upstream_data_, bytes_transferred),
+			boost::bind(&bridge::handle_downstream_write,
 				shared_from_this(),
 				boost::asio::placeholders::error));
 	}
+	else
+		close();
+}
 
-	void handle_upstream_connect(const boost::system::error_code& error)
+// Write to client complete, Async read from remote server
+void tcp_proxy::bridge::handle_downstream_write(const boost::system::error_code& error)
+{
+	if (!error)
 	{
-		if (!error)
-		{
-			// Setup async read from remote server (upstream)
-			upstream_socket_.async_read_some(
-				boost::asio::buffer(upstream_data_, max_data_length),
-				boost::bind(&bridge::handle_upstream_read,
-					shared_from_this(),
-					boost::asio::placeholders::error,
-					boost::asio::placeholders::bytes_transferred));
-
-			// Setup async read from client (downstream)
-			downstream_socket_.async_read_some(
-				boost::asio::buffer(downstream_data_, max_data_length),
-				boost::bind(&bridge::handle_downstream_read,
-					shared_from_this(),
-					boost::asio::placeholders::error,
-					boost::asio::placeholders::bytes_transferred));
-		}
-		else
-			close();
+		upstream_socket_.async_read_some(
+			boost::asio::buffer(upstream_data_, max_data_length),
+			boost::bind(&bridge::handle_upstream_read,
+				shared_from_this(),
+				boost::asio::placeholders::error,
+				boost::asio::placeholders::bytes_transferred));
 	}
+	else
+		close();
+}
+// *** End Of Section A ***
 
-private:
-
-	/*
-	   Section A: Remote Server --> Proxy --> Client
-	   Process data recieved from remote sever then send to client.
-	*/
-
-	// Read from remote server complete, now send data to client
-	void handle_upstream_read(const boost::system::error_code& error,
-		const size_t& bytes_transferred)
-	{
-		if (!error)
-		{
-			async_write(downstream_socket_,
-				boost::asio::buffer(upstream_data_, bytes_transferred),
-				boost::bind(&bridge::handle_downstream_write,
-					shared_from_this(),
-					boost::asio::placeholders::error));
-		}
-		else
-			close();
-	}
-
-	// Write to client complete, Async read from remote server
-	void handle_downstream_write(const boost::system::error_code& error)
-	{
-		if (!error)
-		{
-			upstream_socket_.async_read_some(
-				boost::asio::buffer(upstream_data_, max_data_length),
-				boost::bind(&bridge::handle_upstream_read,
-					shared_from_this(),
-					boost::asio::placeholders::error,
-					boost::asio::placeholders::bytes_transferred));
-		}
-		else
-			close();
-	}
-	// *** End Of Section A ***
-
-
-	/*
-	   Section B: Client --> Proxy --> Remove Server
-	   Process data recieved from client then write to remove server.
-	*/
-
-	// Read from client complete, now send data to remote server
-	void handle_downstream_read(const boost::system::error_code& error,
-		const size_t& bytes_transferred)
-	{
-		if (!error)
-		{
-			async_write(upstream_socket_,
-				boost::asio::buffer(downstream_data_, bytes_transferred),
-				boost::bind(&bridge::handle_upstream_write,
-					shared_from_this(),
-					boost::asio::placeholders::error));
-		}
-		else
-			close();
-	}
-
-	// Write to remote server complete, Async read from client
-	void handle_upstream_write(const boost::system::error_code& error)
-	{
-		if (!error)
-		{
-			downstream_socket_.async_read_some(
-				boost::asio::buffer(downstream_data_, max_data_length),
-				boost::bind(&bridge::handle_downstream_read,
-					shared_from_this(),
-					boost::asio::placeholders::error,
-					boost::asio::placeholders::bytes_transferred));
-		}
-		else
-			close();
-	}
-	// *** End Of Section B ***
-
-	void close()
-	{
-		boost::mutex::scoped_lock lock(mutex_);
-
-		if (downstream_socket_.is_open())
-		{
-			downstream_socket_.close();
-		}
-
-		if (upstream_socket_.is_open())
-		{
-			upstream_socket_.close();
-		}
-	}
-
-	socket_type downstream_socket_;
-	socket_type upstream_socket_;
-
-	enum { max_data_length = 8192 }; //8KB
-	unsigned char downstream_data_[max_data_length];
-	unsigned char upstream_data_[max_data_length];
-
-	boost::mutex mutex_;
-
-public:
-
-	class acceptor
-	{
-	public:
-
-		acceptor(boost::asio::io_service& io_service,
-			const std::string& local_host, unsigned short local_port,
-			const std::string& upstream_host, unsigned short upstream_port)
-			: io_service_(io_service),
-			localhost_address(boost::asio::ip::address_v4::from_string(local_host)),
-			acceptor_(io_service_, ip::tcp::endpoint(localhost_address, local_port)),
-			upstream_port_(upstream_port),
-			upstream_host_(upstream_host)
-		{}
-
-		bool accept_connections()
-		{
-			try
-			{
-				session_ = boost::shared_ptr<bridge>(new bridge(io_service_));
-
-				acceptor_.async_accept(session_->downstream_socket(),
-					boost::bind(&acceptor::handle_accept,
-						this,
-						boost::asio::placeholders::error));
-			}
-			catch (std::exception& e)
-			{
-				std::cerr << "acceptor exception: " << e.what() << std::endl;
-				return false;
-			}
-
-			return true;
-		}
-
-	private:
-
-		void handle_accept(const boost::system::error_code& error)
-		{
-			if (!error)
-			{
-				session_->start(upstream_host_, upstream_port_);
-
-				if (!accept_connections())
-				{
-					std::cerr << "Failure during call to accept." << std::endl;
-				}
-			}
-			else
-			{
-				std::cerr << "Error: " << error.message() << std::endl;
-			}
-		}
-
-		boost::asio::io_service& io_service_;
-		ip::address_v4 localhost_address;
-		ip::tcp::acceptor acceptor_;
-		ptr_type session_;
-		unsigned short upstream_port_;
-		std::string upstream_host_;
-	};
 
 /*
- * [Note] On posix systems the tcp proxy server build command is as follows:
- * c++ -pedantic -ansi -Wall -Werror -O3 -o tcpproxy_server tcpproxy_server.cpp -L/usr/lib -lstdc++ -lpthread -lboost_thread -lboost_system
- */
+   Section B: Client --> Proxy --> Remove Server
+   Process data recieved from client then write to remove server.
+*/
+
+// Read from client complete, now send data to remote server
+void tcp_proxy::bridge::handle_downstream_read(const boost::system::error_code& error,
+	const size_t& bytes_transferred)
+{
+	std::cout << "Bytes transferred to upstream: " << bytes_transferred << "\n";
+	std::cout << "Data: " << downstream_data_ << "\n";
+
+	std::string data = "Bytes transferred downstream -> upstream: ";
+	data += std::to_string(bytes_transferred);
+	data += "\n";
+
+	FlushWriteFile(data);
+
+	data = "Data: ";
+	std::string s(reinterpret_cast<char const*>(downstream_data_), bytes_transferred);
+	data += s;
+	data += "\n";
+
+	FlushWriteFile(data);
+
+	if (!error)
+	{
+		async_write(upstream_socket_,
+			boost::asio::buffer(downstream_data_, bytes_transferred),
+			boost::bind(&bridge::handle_upstream_write,
+				shared_from_this(),
+				boost::asio::placeholders::error));
+	}
+	else
+		close();
+}
+
+// Write to remote server complete, Async read from client
+void tcp_proxy::bridge::handle_upstream_write(const boost::system::error_code& error)
+{
+	if (!error)
+	{
+		downstream_socket_.async_read_some(
+			boost::asio::buffer(downstream_data_, max_data_length),
+			boost::bind(&bridge::handle_downstream_read,
+				shared_from_this(),
+				boost::asio::placeholders::error,
+				boost::asio::placeholders::bytes_transferred));
+	}
+	else
+		close();
+}
+// *** End Of Section B ***
+
+void tcp_proxy::bridge::close()
+{
+	boost::mutex::scoped_lock lock(mutex_);
+
+	if (downstream_socket_.is_open())
+	{
+		downstream_socket_.close();
+	}
+
+	if (upstream_socket_.is_open())
+	{
+		upstream_socket_.close();
+	}
+}
+
+bool tcp_proxy::bridge::acceptor::accept_connections()
+{
+	try
+	{
+		session_ = boost::shared_ptr<bridge>(new bridge(io_service_));
+
+		acceptor_.async_accept(session_->downstream_socket(),
+			boost::bind(&acceptor::handle_accept,
+				this,
+				boost::asio::placeholders::error));
+	}
+	catch (std::exception& e)
+	{
+		std::cerr << "acceptor exception: " << e.what() << std::endl;
+		return false;
+	}
+
+	return true;
+}
+
+
+void tcp_proxy::bridge::acceptor::handle_accept(const boost::system::error_code& error)
+{
+	if (!error)
+	{
+		session_->start(upstream_host_, upstream_port_);
+
+		if (!accept_connections())
+		{
+			std::cerr << "Failure during call to accept." << std::endl;
+		}
+	}
+	else
+	{
+		std::cerr << "Error: " << error.message() << std::endl;
+	}
+}
