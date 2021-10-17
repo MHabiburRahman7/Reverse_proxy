@@ -35,3 +35,7 @@ C:\Users\User\<project location>\<exe directory location>> tcpproxy_server.exe <
 * Using your HTTP Testing Tool, try to call `this_server_ip:this_server_port`
 * The cmd console will show the transmitted raw data
 * The output file will record all the record continuously
+
+### Credits
+Arash Partow (http://www.partow.net/programming/tcpproxy/index.html)
+Github: https://github.com/ArashPartow/proxy
