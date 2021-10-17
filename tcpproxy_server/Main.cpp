@@ -1,11 +1,12 @@
 #include "tcpproxy_server.h"
+#define DEBUG_MODE
 
 int main(int argc, char* argv[])
 {
-
-    if (argc != 5)
+    ////[RELEASE MODE]
+    if (argc != 6)
     {
-        std::cerr << "usage: tcpproxy_server <local host ip> <local port> <forward host ip> <forward port>" << std::endl;
+        std::cerr << "usage: tcpproxy_server <local host ip> <local port> <forward host ip> <forward port> <dumpData name>" << std::endl;
         return 1;
     }
 
@@ -14,6 +15,7 @@ int main(int argc, char* argv[])
     const std::string local_host = argv[1];
     const std::string forward_host = argv[3];
 
+    ////[DEBUG MODE]
     //const char* input_local_port = "80";
     //const char* input_forward_port = "80";
     //const char* input_local_host = "127.0.1.1";

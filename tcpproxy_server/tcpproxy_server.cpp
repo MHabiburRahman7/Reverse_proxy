@@ -115,6 +115,7 @@ void tcp_proxy::bridge::handle_upstream_connect(const boost::system::error_code&
 void tcp_proxy::bridge::handle_upstream_read(const boost::system::error_code& error,
 	const size_t& bytes_transferred)
 {
+	//Dump raw data to the file
 	std::cout << "Bytes transferred to downstream: " << bytes_transferred << "\n";
 	std::cout << "Data: " << upstream_data_ << "\n";
 
@@ -170,6 +171,7 @@ void tcp_proxy::bridge::handle_downstream_write(const boost::system::error_code&
 void tcp_proxy::bridge::handle_downstream_read(const boost::system::error_code& error,
 	const size_t& bytes_transferred)
 {
+	//Dump raw data to the file
 	std::cout << "Bytes transferred to upstream: " << bytes_transferred << "\n";
 	std::cout << "Data: " << downstream_data_ << "\n";
 
