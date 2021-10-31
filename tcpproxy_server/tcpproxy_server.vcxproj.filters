@@ -18,15 +18,6 @@
     <ClCompile Include="tcpproxy_server.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Main.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="MultiThread.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="ThreadPool.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="MultiThreadIos.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -39,9 +30,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="tcpproxy_server.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="ThreadPool.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="io_service_pool.h">

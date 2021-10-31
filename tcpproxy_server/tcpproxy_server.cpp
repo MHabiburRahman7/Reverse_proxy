@@ -241,26 +241,14 @@ bool tcp_proxy::bridge::acceptor::accept_connections()
 {
 	try
 	{
-		//new_connection_.reset(new connection(
-		//	io_service_pool_.get_io_service(), request_handler_));
-		//acceptor_.async_accept(new_connection_->socket(),
-		//	boost::bind(&server::handle_accept, this,
-		//		boost::asio::placeholders::error));
-
-		//for (int i = 0; i < 3; i++) {
 		session_ = boost::shared_ptr<bridge>(new bridge(io_service_pool_.get_io_service()));
 
+		//1 acceptor = 1 port
+		//But we have several io_service on n threads which will handle the new concurrent connection
 		acceptor_.async_accept(session_->downstream_socket(),
 			boost::bind(&acceptor::handle_accept,
 				this,
 				boost::asio::placeholders::error));
-		//}
-		//session_ = boost::shared_ptr<bridge>(new bridge(io_service_));
-
-		/*acceptor_.async_accept(session_->downstream_socket(),
-			boost::bind(&acceptor::handle_accept,
-				this,
-				boost::asio::placeholders::error));*/
 	}
 	catch (std::exception& e)
 	{

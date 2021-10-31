@@ -78,17 +78,6 @@ namespace tcp_proxy
 		class acceptor {
 
 		public:
-			/*acceptor(boost::asio::io_service& io_service,
-				const std::string& local_host, unsigned short local_port,
-				const std::string& upstream_host, unsigned short upstream_port,
-				std::size_t io_service_pool_size)
-				: io_service_(io_service),
-				localhost_address(boost::asio::ip::address_v4::from_string(local_host)),
-				acceptor_(io_service_, ip::tcp::endpoint(localhost_address, local_port)),
-				upstream_port_(upstream_port),
-				upstream_host_(upstream_host),
-				io_service_pool_(io_service_pool_size)
-			{*/
 			acceptor(const std::string& local_host, unsigned short local_port,
 				const std::string& upstream_host, unsigned short upstream_port,
 				std::size_t io_service_pool_size)
@@ -98,10 +87,7 @@ namespace tcp_proxy
 				upstream_host_(upstream_host),
 				io_service_pool_(io_service_pool_size)
 			{
-				//m_threadPool = new ThreadPool();
-
-				//they said we dont need reuse_address
-				//acceptor_.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
+				//instantiate the io_service pool based on available threads
 			}
 
 			bool accept_connections();
@@ -116,7 +102,6 @@ namespace tcp_proxy
 			/// The pool of io_service objects used to perform asynchronous operations.
 			io_service_pool io_service_pool_;
 
-			//boost::asio::io_service& io_service_;
 			ip::address_v4 localhost_address;
 			ip::tcp::acceptor acceptor_;
 

@@ -50,4 +50,4 @@ namespace tcp_proxy {
 	};
 }
 
-#endif // HTTP_SERVER2_IO_SERVICE_POOL_HPP --> source
+#endif // HTTP_SERVER2_IO_SERVICE_POOL_HPP --> source : https://www.boost.org/doc/libs/1_49_0/doc/html/boost_asio/examples.html
