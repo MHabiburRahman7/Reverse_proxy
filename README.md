@@ -1,5 +1,12 @@
 # Reverse_proxy
 
+## Update
+* adding io_service_pool to treat io_service in a thread
+* Modify write to file method
+* No Redis enhancement
+* No Lmax Distruptor enhancement
+* Use Boost::asio to handle connection
+
 ## Requirement
 * Build IDE = Visual Studio 2019 (v142)
 * HTTP Testing Tool(?) = Postman or Internet Browser

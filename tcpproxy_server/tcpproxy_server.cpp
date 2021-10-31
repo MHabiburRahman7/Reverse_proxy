@@ -139,11 +139,16 @@ void tcp_proxy::bridge::handle_upstream_read(const boost::system::error_code& er
 
 	if (!error)
 	{
+		//lock to avoid racing condition
+		mutex_.lock();
+
 		async_write(downstream_socket_,
 			boost::asio::buffer(upstream_data_, bytes_transferred),
 			boost::bind(&bridge::handle_downstream_write,
 				shared_from_this(),
 				boost::asio::placeholders::error));
+
+		mutex_.unlock();
 	}
 	else
 		close();
@@ -195,11 +200,16 @@ void tcp_proxy::bridge::handle_downstream_read(const boost::system::error_code& 
 
 	if (!error)
 	{
+		//lock to avoid racing condition
+		mutex_.lock();
+
 		async_write(upstream_socket_,
 			boost::asio::buffer(downstream_data_, bytes_transferred),
 			boost::bind(&bridge::handle_upstream_write,
 				shared_from_this(),
 				boost::asio::placeholders::error));
+
+		mutex_.unlock();
 	}
 	else
 		close();
