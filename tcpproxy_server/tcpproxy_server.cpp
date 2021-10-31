@@ -52,10 +52,14 @@ using namespace ip;
 
 void tcp_proxy::bridge::FlushWriteFile(std::string str)
 {
-	std::ofstream myfile;
-	myfile.open(LogFileLocation, std::fstream::app);
+	//lock to avoid racing condition
+	mutex_.lock();
+
 	myfile << str << "\n";
-	myfile.close();
+	myfile.flush();
+
+	//unlock to release the thread
+	mutex_.unlock();
 }
 
 bridge::socket_type& tcp_proxy::bridge::downstream_socket()
@@ -72,6 +76,7 @@ bridge::socket_type& tcp_proxy::bridge::upstream_socket()
 
 void tcp_proxy::bridge::start(const std::string& upstream_host, unsigned short upstream_port)
 {
+	
 	// Attempt connection to remote server (upstream side)
 	upstream_socket_.async_connect(
 		ip::tcp::endpoint(
@@ -236,12 +241,26 @@ bool tcp_proxy::bridge::acceptor::accept_connections()
 {
 	try
 	{
-		session_ = boost::shared_ptr<bridge>(new bridge(io_service_));
+		//new_connection_.reset(new connection(
+		//	io_service_pool_.get_io_service(), request_handler_));
+		//acceptor_.async_accept(new_connection_->socket(),
+		//	boost::bind(&server::handle_accept, this,
+		//		boost::asio::placeholders::error));
+
+		//for (int i = 0; i < 3; i++) {
+		session_ = boost::shared_ptr<bridge>(new bridge(io_service_pool_.get_io_service()));
 
 		acceptor_.async_accept(session_->downstream_socket(),
 			boost::bind(&acceptor::handle_accept,
 				this,
 				boost::asio::placeholders::error));
+		//}
+		//session_ = boost::shared_ptr<bridge>(new bridge(io_service_));
+
+		/*acceptor_.async_accept(session_->downstream_socket(),
+			boost::bind(&acceptor::handle_accept,
+				this,
+				boost::asio::placeholders::error));*/
 	}
 	catch (std::exception& e)
 	{
@@ -268,4 +287,15 @@ void tcp_proxy::bridge::acceptor::handle_accept(const boost::system::error_code&
 	{
 		std::cerr << "Error: " << error.message() << std::endl;
 	}
+}
+
+void tcp_proxy::bridge::acceptor::init(const std::string& local_host, unsigned short local_port,
+	const std::string& upstream_host, unsigned short upstream_port,
+	std::size_t io_service_pool_size)
+{
+}
+
+void tcp_proxy::bridge::acceptor::runAcceptor()
+{
+	io_service_pool_.run();
 }

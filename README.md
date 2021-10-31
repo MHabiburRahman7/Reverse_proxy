@@ -37,5 +37,4 @@ C:\Users\User\<project location>\<exe directory location>> tcpproxy_server.exe <
 * The output file will record all the record continuously
 
 ### Credits
-Arash Partow (http://www.partow.net/programming/tcpproxy/index.html)
-Github: https://github.com/ArashPartow/proxy
+Arash Partow (https://github.com/ArashPartow/proxy)
